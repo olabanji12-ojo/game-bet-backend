@@ -6,6 +6,10 @@ import { line2Router } from './routes/line2_cockfight.js';
 import { line3Router } from './routes/line3_internal.js';
 import { betQueue } from './services/betQueue.js';
 import { walletLedger } from './services/walletLedger.js';
+import { quotaShield } from './services/quotaShield.js';
+import { cockfightService } from './services/cockfightService.js';
+import { casinoEngine } from './services/casinoEngine.js';
+import { renderDashboardHtml } from './views/htmlRenderers.js';
 const app = express();
 // Middleware
 app.use(cors());
@@ -76,8 +80,25 @@ app.post('/api/wallet/deposit', (req, res) => {
 app.post('/api/wallet/reset', (req, res) => {
     res.json({ success: true, wallet: walletLedger.reset() });
 });
-// Root Gateway Directory
-app.get('/', (req, res) => {
+// Root Gateway Directory & Visual Control Hub
+app.get('/', async (req, res) => {
+    // If visited in a browser without ?format=json, render the interactive Staging Control Hub
+    if (req.get('accept')?.includes('text/html') && req.query.format !== 'json') {
+        const [matches, arenas, taixiu, quota] = await Promise.all([
+            quotaShield.getLiveMatches('soccer').catch(() => []),
+            cockfightService.getAllArenas(),
+            { state: casinoEngine.getTaiXiuState(), isBettingOpen: casinoEngine.isBettingOpen() },
+            quotaShield.getMetrics()
+        ]);
+        return res.type('html').send(renderDashboardHtml({
+            server: { status: 'ONLINE', port: CONFIG.SERVER.PORT },
+            lines: { line1: 'ACTIVE', line2: 'ACTIVE', line3: 'ACTIVE' },
+            quota,
+            matches,
+            arenas,
+            taixiu
+        }));
+    }
     res.json({
         service: 'Fanclub68 / SBOBET Backend Transmission Engine (Milestone 2)',
         status: 'ONLINE',

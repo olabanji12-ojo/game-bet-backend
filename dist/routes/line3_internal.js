@@ -1,15 +1,21 @@
 import { Router } from 'express';
 import { casinoEngine } from '../services/casinoEngine.js';
 import { telegramService } from '../services/telegramService.js';
+import { renderTaiXiuHtml } from '../views/htmlRenderers.js';
 const router = Router();
 // LINE 3: GET /api/line3/internal/casino/taixiu/state
 // Returns live Tài Xỉu 40s countdown loop, 5s buffer flag, and 30-round Soi Cầu history
 router.get('/casino/taixiu/state', (req, res) => {
-    res.json({
+    const data = {
         line: 'Line 3: Internal Mobile Core Transmission',
         state: casinoEngine.getTaiXiuState(),
         isBettingOpen: casinoEngine.isBettingOpen()
-    });
+    };
+    // If opened in browser without ?format=json, render beautiful visual dashboard
+    if (req.get('accept')?.includes('text/html') && req.query.format !== 'json') {
+        return res.type('html').send(renderTaiXiuHtml(data));
+    }
+    res.json(data);
 });
 // LINE 3: GET /api/line3/internal/casino/xocdia/state
 // Returns live Xóc Đĩa 4-token plate state, shaking phase, and outcome trends
