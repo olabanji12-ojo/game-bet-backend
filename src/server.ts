@@ -95,6 +95,24 @@ app.post('/api/wallet/reset', (req: Request, res: Response) => {
   res.json({ success: true, wallet: walletLedger.reset() });
 });
 
+// Root Gateway Directory
+app.get('/', (req: Request, res: Response) => {
+  res.json({
+    service: 'Fanclub68 / SBOBET Backend Transmission Engine (Milestone 2)',
+    status: 'ONLINE',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      line1_sports: '/api/line1/sports/live',
+      line1_quota: '/api/line1/sports/quota',
+      line2_cockfight: '/api/line2/cockfight/arenas',
+      line3_casino: '/api/line3/internal/casino/taixiu/state',
+      bets_queue: '/api/bets/queue',
+      wallet: '/api/wallet'
+    }
+  });
+});
+
 // Staging Server Health Check
 app.get('/health', (req: Request, res: Response) => {
   res.json({
