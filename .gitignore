@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Compiled production build
+dist/
+
+# Environment configuration with private keys
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
