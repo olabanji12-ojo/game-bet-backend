@@ -1,8 +1,6 @@
 # Dependencies
 node_modules/
 
-# Compiled production build
-dist/
 
 # Environment configuration with private keys
 .env
