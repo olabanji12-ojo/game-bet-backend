@@ -1,0 +1,30 @@
+{
+  "name": "game-bet-backend",
+  "version": "1.0.0",
+  "description": "Fanclub68 / SBOBET Production-Grade Anti-Fraud Betting Architecture (Milestone 2)",
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "tsx src/testSuite.ts"
+  },
+  "keywords": ["sbobet", "fanclub68", "sportsbook", "sv388", "anti-fraud", "betting-queue"],
+  "author": "Fav Tech",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
