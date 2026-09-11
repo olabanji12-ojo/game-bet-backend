@@ -20,7 +20,7 @@ export const CONFIG = {
     NODE_ENV: getEnvString('NODE_ENV', 'development'),
   },
   ODDS_API: {
-    KEY: getEnvString('THE_ODDS_API_KEY', '0c6133a9999fc461ae990c6dbaa55579'),
+    KEY: getEnvString('THE_ODDS_API_KEY', 'c6cc5131f2e2954832edba4a8620877e'),
     MARKETS: getEnvString('SPORTS_MARKETS_PARAMS', 'spreads,totals,outlays,player_props,tennis_props')
       .split(',')
       .map(s => s.trim())
