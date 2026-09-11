@@ -30,6 +30,26 @@ export interface Match {
   currentMinute?: number;
   score: Score;
   odds: MatchOdds;
+  // SBOBET Odds Compatibility
+  matchId?: string;
+  leagueId?: string;
+  leagueName?: string;
+  scoreHome?: number;
+  scoreAway?: number;
+  liveTime?: string;
+  isLive?: boolean;
+  handicapTeam?: 'home' | 'away';
+  homeHandicap?: string;
+  awayHandicap?: string;
+  homeOdds?: number;
+  awayOdds?: number;
+  ouGoal?: string;
+  ouOverOdds?: number;
+  ouUnderOdds?: number;
+  oneXTwoHome?: number;
+  oneXTwoAway?: number;
+  oneXTwoDraw?: number;
+  moreCount?: number;
 }
 
 export type SelectionType = 'Home' | 'Away' | 'Draw' | 'Over' | 'Under' | 'SpreadHome' | 'SpreadAway';
