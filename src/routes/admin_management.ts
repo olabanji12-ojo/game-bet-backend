@@ -248,6 +248,57 @@ router.post('/credit/distribute', (req: Request, res: Response) => {
   });
 });
 
+// POST /api/admin/accounts/create
+// Create a simulated account (Master, Agent, or Member) in the hierarchy
+router.post('/accounts/create', (req: Request, res: Response) => {
+  const { username, name, role, uplineId, creditLimit = 50000, initialBalance = 10000 } = req.body;
+
+  if (!username || !name || !role) {
+    return res.status(400).json({ success: false, error: 'Username, name, and role are required.' });
+  }
+
+  const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, '_');
+  if (accounts.some(a => a.username.toLowerCase() === cleanUsername)) {
+    return res.status(400).json({ success: false, error: `Account username "@${cleanUsername}" already exists.` });
+  }
+
+  const prefix = role === 'MASTER' ? 'ACC_MST' : role === 'AGENT' ? 'ACC_AGT' : 'ACC_USR';
+  const newAccount: AdminAccount = {
+    id: `${prefix}_${Math.floor(100 + Math.random() * 900)}`,
+    username: cleanUsername,
+    name: name.trim(),
+    role: role as 'MASTER' | 'AGENT' | 'MEMBER',
+    uplineId: uplineId || 'ACC_ROOT_001',
+    creditLimit: parseFloat(creditLimit) || 50000,
+    balance: parseFloat(initialBalance) || 0,
+    status: 'ACTIVE',
+    activePlayersCount: role === 'MEMBER' ? undefined : 0,
+    createdAt: new Date().toISOString()
+  };
+
+  accounts.push(newAccount);
+
+  if (newAccount.balance > 0) {
+    const tx: CreditTransaction = {
+      id: `TX_CRD_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      sourceAccount: uplineId || 'superadmin',
+      targetAccount: newAccount.username,
+      amount: newAccount.balance,
+      type: 'ALLOCATE',
+      note: 'Initial simulated account creation grant',
+      executedBy: 'Super Admin'
+    };
+    creditAuditLogs.unshift(tx);
+  }
+
+  res.json({
+    success: true,
+    message: `Simulated account "${newAccount.name}" (@${newAccount.username}) created successfully as ${newAccount.role}.`,
+    account: newAccount
+  });
+});
+
 // POST /api/admin/users/toggle-suspend
 // User Suspension Toggle inside Admin panel
 router.post('/users/toggle-suspend', (req: Request, res: Response) => {
