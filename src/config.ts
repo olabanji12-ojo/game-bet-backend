@@ -25,7 +25,7 @@ export const CONFIG = {
       .split(',')
       .map(s => s.trim())
       .filter(Boolean),
-    CACHE_TTL_SECONDS: getEnvNumber('CACHE_TTL_LIVE_SECONDS', 15),
+    CACHE_TTL_SECONDS: getEnvNumber('CACHE_TTL_LIVE_SECONDS', 1800),
   },
   TIMEOUTS: {
     LAZY_LOADING_IDLE_SECONDS: getEnvNumber('LAZY_LOADING_IDLE_TIMEOUT_SECONDS', 60),
