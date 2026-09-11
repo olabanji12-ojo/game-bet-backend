@@ -26,7 +26,6 @@ export function renderTaiXiuHtml(data) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Line 3: Tài Xỉu 3D Engine — Fanclub68</title>
-  <meta http-equiv="refresh" content="3">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <style>
@@ -39,10 +38,25 @@ export function renderTaiXiuHtml(data) {
     .json-toggle:hover { background: #334155; color: #fff; }
     .hero-card { background: linear-gradient(135deg, #131E3D, #0F172A); border: 1px solid #1E293B; border-radius: 16px; padding: 32px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; }
     .round-title { font-size: 12px; color: #94A3B8; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }
-    .countdown { font-size: 42px; font-weight: 900; color: ${timeLeft <= 5 ? '#EF4444' : '#F59E0B'}; margin: 8px 0; }
+    .countdown { font-size: 44px; font-weight: 900; color: ${timeLeft <= 5 ? '#EF4444' : '#F59E0B'}; margin: 8px 0; transition: color 0.3s; }
     .status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; background: ${isBettingOpen ? '#064E3B' : '#7F1D1D'}; color: ${isBettingOpen ? '#34D399' : '#F87171'}; margin-bottom: 24px; }
     .dice-container { display: flex; justify-content: center; gap: 16px; margin: 20px 0; }
-    .dice-box { width: 72px; height: 72px; background: #FFFFFF; color: #0F172A; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 48px; box-shadow: 0 8px 16px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.8); border: 2px solid #E2E8F0; }
+    .dice-box { 
+      width: 76px; 
+      height: 76px; 
+      background: linear-gradient(135deg, #E62E2E 0%, #C91A1A 50%, #8A0F0F 100%); 
+      color: #FFFFFF; 
+      border-radius: 16px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      font-size: 52px; 
+      box-shadow: 0 10px 22px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.45), inset 0 -3px 5px rgba(0,0,0,0.5); 
+      border: 2px solid #FCA5A5; 
+      text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      transform: perspective(300px) rotateX(4deg);
+      transition: transform 0.2s ease;
+    }
     .outcome-banner { font-size: 24px; font-weight: 900; color: #fff; background: ${outcomeColor}; display: inline-block; padding: 10px 28px; border-radius: 12px; margin-top: 12px; box-shadow: 0 4px 14px ${outcomeColor}66; }
     .history-card { background: #131E3D; border: 1px solid #1E293B; border-radius: 16px; padding: 24px; }
     .history-title { font-size: 14px; font-weight: 800; color: #E2E8F0; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
@@ -64,23 +78,25 @@ export function renderTaiXiuHtml(data) {
     </div>
 
     <div class="hero-card">
-      <div class="round-title">Phiên Cược: ${roundId}</div>
-      <div class="countdown">${timeLeft}s</div>
-      <div class="status-pill">
+      <div class="round-title" id="round-id-el">Phiên Cược: ${roundId}</div>
+      <div class="countdown" id="countdown-timer">${timeLeft}s</div>
+      <div class="status-pill" id="status-pill-el">
         <span style="width: 8px; height: 8px; border-radius: 50%; background: currentColor;"></span>
-        ${isBettingOpen ? 'CỔNG CƯỢC MỞ (BETTING OPEN)' : '5s KHÓA VÔ HÌNH (INVISIBLE BUFFER)'}
+        <span id="status-text">${isBettingOpen ? 'CỔNG CƯỢC MỞ (BETTING OPEN)' : '5s KHÓA VÔ HÌNH (INVISIBLE BUFFER)'}</span>
       </div>
 
-      <div class="dice-container">
-        <div class="dice-box">${dicePips[dice[0]] || dice[0]}</div>
-        <div class="dice-box">${dicePips[dice[1]] || dice[1]}</div>
-        <div class="dice-box">${dicePips[dice[2]] || dice[2]}</div>
+      <div class="dice-container" id="dice-container">
+        <div class="dice-box" id="dice-0">${dicePips[dice[0]] || dice[0]}</div>
+        <div class="dice-box" id="dice-1">${dicePips[dice[1]] || dice[1]}</div>
+        <div class="dice-box" id="dice-2">${dicePips[dice[2]] || dice[2]}</div>
       </div>
 
       <div>
-        <div class="outcome-banner">${outcomeText} — Tổng Điểm: ${totalScore}</div>
+        <div class="outcome-banner" id="outcome-banner-el">${outcomeText} — Tổng Điểm: ${totalScore}</div>
       </div>
-      <div style="font-size: 12px; color: #94A3B8; margin-top: 12px;">Xúc xắc: [${dice.join(', ')}] • Pha: <b>${phase}</b></div>
+      <div style="font-size: 12px; color: #94A3B8; margin-top: 12px;" id="meta-summary">
+        Xúc xắc: [${dice.join(', ')}] • Pha: <b id="phase-text">${phase}</b>
+      </div>
     </div>
 
     <div class="history-card">
@@ -88,15 +104,75 @@ export function renderTaiXiuHtml(data) {
         <span>Soi Cầu 30 Phiên Gần Nhất</span>
         <span style="font-size: 11px; color: #94A3B8; font-weight: 600;">T = Tài (11–17) | X = Xỉu (4–10)</span>
       </div>
-      <div class="roadmap-grid">
+      <div class="roadmap-grid" id="roadmap-grid-el">
         ${historyBeads}
       </div>
     </div>
 
     <div class="footer-note">
-      Fanclub68 Engine • Auto-refreshing every 3s • Query with <code>Accept: application/json</code> for REST API data
+      Fanclub68 Engine • High-precision 1-second live telemetry • Query with <code>Accept: application/json</code> for REST API data
     </div>
   </div>
+
+  <script>
+    // High-Precision 1-Second Smooth Countdown Timer
+    let currentSeconds = ${timeLeft};
+    let currentRoundId = "${roundId}";
+    const dicePipsMap = { 1: '⚀', 2: '⚁', 3: '⚂', 4: '⚃', 5: '⚄', 6: '⚅' };
+    const timerEl = document.getElementById('countdown-timer');
+    const statusPill = document.getElementById('status-pill-el');
+    const statusText = document.getElementById('status-text');
+
+    // Ticks smoothly every 1000ms without skipping seconds
+    setInterval(() => {
+      if (currentSeconds > 0) {
+        currentSeconds--;
+        if (timerEl) {
+          timerEl.textContent = currentSeconds + 's';
+          if (currentSeconds <= 5) {
+            timerEl.style.color = '#EF4444';
+            if (statusPill && statusText) {
+              statusPill.style.background = '#7F1D1D';
+              statusPill.style.color = '#F87171';
+              statusText.textContent = '5s KHÓA VÔ HÌNH (INVISIBLE BUFFER)';
+            }
+          } else {
+            timerEl.style.color = '#F59E0B';
+            if (statusPill && statusText) {
+              statusPill.style.background = '#064E3B';
+              statusPill.style.color = '#34D399';
+              statusText.textContent = 'CỔNG CƯỢC MỞ (BETTING OPEN)';
+            }
+          }
+        }
+      }
+    }, 1000);
+
+    // Background sync every 2.5 seconds to align state without full page flash
+    setInterval(async () => {
+      try {
+        const response = await fetch('/api/line3/internal/casino/taixiu/state?format=json');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!data || !data.state) return;
+
+        const s = data.state;
+        // If a new round starts, smoothly reload the round state
+        if (s.roundId !== currentRoundId) {
+          window.location.reload();
+          return;
+        }
+
+        // Keep local countdown precisely synchronized with backend
+        currentSeconds = s.timeLeft;
+        if (timerEl) {
+          timerEl.textContent = currentSeconds + 's';
+        }
+      } catch (err) {
+        // Silently continue local countdown if network hiccup
+      }
+    }, 2500);
+  </script>
 </body>
 </html>`;
 }
@@ -109,7 +185,6 @@ export function renderDashboardHtml(data) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fanclub68 — Staging Transmission Control Hub (Milestone 2)</title>
-  <meta http-equiv="refresh" content="5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <style>
@@ -134,7 +209,19 @@ export function renderDashboardHtml(data) {
     .match-row { padding: 10px 12px; background: #1E293B; border-radius: 8px; margin-bottom: 8px; font-size: 12px; }
     .btn-link { display: inline-block; font-size: 11px; font-weight: 700; color: #38BDF8; text-decoration: none; padding: 4px 8px; border-radius: 6px; background: rgba(56, 189, 248, 0.1); transition: all 0.2s; }
     .btn-link:hover { background: rgba(56, 189, 248, 0.2); }
-    .dice-pill { font-size: 28px; background: #fff; color: #000; padding: 2px 8px; border-radius: 8px; font-weight: bold; }
+    .dice-pill { 
+      font-size: 32px; 
+      background: linear-gradient(135deg, #E62E2E 0%, #C91A1A 50%, #8A0F0F 100%); 
+      color: #FFFFFF; 
+      padding: 4px 10px; 
+      border-radius: 10px; 
+      font-weight: bold; 
+      border: 1.5px solid #FCA5A5;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.4);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
   </style>
 </head>
 <body>
@@ -211,7 +298,7 @@ export function renderDashboardHtml(data) {
 
         <div style="background: #1E293B; border-radius: 10px; padding: 14px; text-align: center; margin-bottom: 12px;">
           <div style="font-size: 11px; color: #94A3B8;">TÀI XỈU 3D COUNTDOWN</div>
-          <div style="font-size: 32px; font-weight: 900; color: ${taixiu.state.timeLeft <= 5 ? '#EF4444' : '#F59E0B'};">
+          <div id="dash-countdown-timer" style="font-size: 32px; font-weight: 900; color: ${taixiu.state.timeLeft <= 5 ? '#EF4444' : '#F59E0B'};">
             ${taixiu.state.timeLeft}s
           </div>
           <div style="display: flex; justify-content: center; gap: 8px; margin: 10px 0;">
@@ -264,6 +351,33 @@ export function renderDashboardHtml(data) {
       Fanclub68 Staging Server • Running on Render • Connected to The Odds-API & SV388 feeds
     </div>
   </div>
+
+  <script>
+    let dashSec = ${taixiu.state.timeLeft};
+    const dashTimer = document.getElementById('dash-countdown-timer');
+    setInterval(() => {
+      if (dashSec > 0) {
+        dashSec--;
+        if (dashTimer) {
+          dashTimer.textContent = dashSec + 's';
+          dashTimer.style.color = dashSec <= 5 ? '#EF4444' : '#F59E0B';
+        }
+      }
+    }, 1000);
+
+    setInterval(async () => {
+      try {
+        const res = await fetch('/api/line3/internal/casino/taixiu/state?format=json');
+        if (res.ok) {
+          const d = await res.json();
+          if (d?.state?.timeLeft !== undefined) {
+            dashSec = d.state.timeLeft;
+            if (dashTimer) dashTimer.textContent = dashSec + 's';
+          }
+        }
+      } catch (e) {}
+    }, 3000);
+  </script>
 </body>
 </html>`;
 }

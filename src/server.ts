@@ -4,6 +4,7 @@ import { CONFIG, printConfigBanner } from './config.js';
 import { line1Router } from './routes/line1_sports.js';
 import { line2Router } from './routes/line2_cockfight.js';
 import { line3Router } from './routes/line3_internal.js';
+import { adminManagementRouter } from './routes/admin_management.js';
 import { betQueue } from './services/betQueue.js';
 import { walletLedger } from './services/walletLedger.js';
 import { quotaShield } from './services/quotaShield.js';
@@ -33,10 +34,11 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Dedicated 3-Transmission Lines
+// Dedicated 3-Transmission Lines & Admin Controls
 app.use('/api/line1/sports', line1Router);
 app.use('/api/line2/cockfight', line2Router);
 app.use('/api/line3/internal', line3Router);
+app.use('/api/admin', adminManagementRouter);
 
 // Unified Anti-Latency Bet Placement Queue
 app.post('/api/bets/place', (req: Request, res: Response) => {
