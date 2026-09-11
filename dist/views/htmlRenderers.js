@@ -115,21 +115,31 @@ export function renderTaiXiuHtml(data) {
   </div>
 
   <script>
-    // High-Precision 1-Second Smooth Countdown Timer
-    let currentSeconds = ${timeLeft};
-    let currentRoundId = "${roundId}";
+    // High-Precision Monotonic Math Clock (Guaranteed Zero Latency Jitter)
     const dicePipsMap = { 1: '⚀', 2: '⚁', 3: '⚂', 4: '⚃', 5: '⚄', 6: '⚅' };
+    let currentRoundId = "${roundId}";
+    let targetEndTime = Date.now() + (${timeLeft} * 1000);
+
     const timerEl = document.getElementById('countdown-timer');
     const statusPill = document.getElementById('status-pill-el');
     const statusText = document.getElementById('status-text');
+    const roundIdEl = document.getElementById('round-id-el');
+    const dice0 = document.getElementById('dice-0');
+    const dice1 = document.getElementById('dice-1');
+    const dice2 = document.getElementById('dice-2');
+    const outcomeBanner = document.getElementById('outcome-banner-el');
+    const metaSummary = document.getElementById('meta-summary');
+    const roadmapGrid = document.getElementById('roadmap-grid-el');
 
-    // Ticks smoothly every 1000ms without skipping seconds
-    setInterval(() => {
-      if (currentSeconds > 0) {
-        currentSeconds--;
-        if (timerEl) {
-          timerEl.textContent = currentSeconds + 's';
-          if (currentSeconds <= 5) {
+    // Smooth Monotonic Tick (Runs every 250ms for buttery-smooth second transitions)
+    function tick() {
+      const remainingMs = targetEndTime - Date.now();
+      const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+
+      if (timerEl) {
+        if (remaining > 0) {
+          timerEl.textContent = remaining + 's';
+          if (remaining <= 5) {
             timerEl.style.color = '#EF4444';
             if (statusPill && statusText) {
               statusPill.style.background = '#7F1D1D';
@@ -144,12 +154,25 @@ export function renderTaiXiuHtml(data) {
               statusText.textContent = 'CỔNG CƯỢC MỞ (BETTING OPEN)';
             }
           }
+        } else {
+          timerEl.textContent = '0s (MỞ BÁT)';
+          timerEl.style.color = '#EF4444';
+          if (statusPill && statusText) {
+            statusPill.style.background = '#831843';
+            statusPill.style.color = '#F472B6';
+            statusText.textContent = 'ĐANG MỞ KẾT QUẢ (REVEALING)';
+          }
         }
       }
-    }, 1000);
+    }
 
-    // Background sync every 2.5 seconds to align state without full page flash
+    setInterval(tick, 250);
+
+    // Seamless Background Sync (Dynamic DOM Injection - ZERO Page Reload Flash)
+    let syncInProgress = false;
     setInterval(async () => {
+      if (syncInProgress) return;
+      syncInProgress = true;
       try {
         const response = await fetch('/api/line3/internal/casino/taixiu/state?format=json');
         if (!response.ok) return;
@@ -157,21 +180,50 @@ export function renderTaiXiuHtml(data) {
         if (!data || !data.state) return;
 
         const s = data.state;
-        // If a new round starts, smoothly reload the round state
-        if (s.roundId !== currentRoundId) {
-          window.location.reload();
-          return;
-        }
 
-        // Keep local countdown precisely synchronized with backend
-        currentSeconds = s.timeLeft;
-        if (timerEl) {
-          timerEl.textContent = currentSeconds + 's';
+        // When a new round starts or outcome updates, update DOM elements smoothly in place
+        if (s.roundId !== currentRoundId) {
+          currentRoundId = s.roundId;
+          targetEndTime = Date.now() + (s.timeLeft * 1000);
+
+          if (roundIdEl) roundIdEl.textContent = 'Phiên Cược: ' + s.roundId;
+          if (dice0) dice0.textContent = dicePipsMap[s.dice[0]] || s.dice[0];
+          if (dice1) dice1.textContent = dicePipsMap[s.dice[1]] || s.dice[1];
+          if (dice2) dice2.textContent = dicePipsMap[s.dice[2]] || s.dice[2];
+
+          if (outcomeBanner) {
+            const isTai = s.outcome === 'TAI';
+            outcomeBanner.textContent = (isTai ? 'TÀI (11–17)' : 'XỈU (4–10)') + ' — Tổng Điểm: ' + s.totalScore;
+            outcomeBanner.style.background = isTai ? '#EF4444' : '#3B82F6';
+            outcomeBanner.style.boxShadow = '0 4px 14px ' + (isTai ? '#EF444466' : '#3B82F666');
+          }
+
+          if (metaSummary) {
+            metaSummary.innerHTML = 'Xúc xắc: [' + s.dice.join(', ') + '] • Pha: <b>' + s.phase + '</b>';
+          }
+
+          if (roadmapGrid && Array.isArray(s.history)) {
+            roadmapGrid.innerHTML = s.history.map(h => {
+              const beadTai = h.outcome === 'TAI';
+              const bg = beadTai ? '#DC2626' : '#2563EB';
+              return '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: ' + bg + '; color: #fff; font-weight: 800; font-size: 11px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);" title="Round ' + h.roundId + ': ' + h.outcome + ' (Total: ' + h.total + ')"><span>' + (beadTai ? 'T' : 'X') + '</span><span style="font-size: 9px; opacity: 0.85;">' + h.total + '</span></div>';
+            }).join('');
+          }
+        } else {
+          // Soft align target end time only if drift exceeds 2 seconds (absorbs network latency jitter)
+          const localRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+          if (Math.abs(s.timeLeft - localRemaining) > 2) {
+            targetEndTime = Date.now() + (s.timeLeft * 1000);
+          }
+          if (metaSummary) {
+            metaSummary.innerHTML = 'Xúc xắc: [' + s.dice.join(', ') + '] • Pha: <b>' + s.phase + '</b>';
+          }
         }
       } catch (err) {
-        // Silently continue local countdown if network hiccup
+      } finally {
+        syncInProgress = false;
       }
-    }, 2500);
+    }, 2000);
   </script>
 </body>
 </html>`;
@@ -275,17 +327,19 @@ export function renderDashboardHtml(data) {
         <p style="font-size: 12px; color: #94A3B8; margin-bottom: 12px;">Isolated subdomain routing & 3s Anti-Vét Gate Lock.</p>
 
         <div style="font-size: 12px; font-weight: 800; color: #E2E8F0; margin-bottom: 8px;">Active Bồ Arenas (${arenas.length})</div>
+        <div id="dash-arenas-container">
         ${arenas.slice(0, 5).map((a) => `
-          <div class="arena-row">
+          <div class="arena-row" data-arena-id="${a.id}">
             <div>
               <b style="color: #FCD34D;">${a.id}</b> — ${a.name}
               <div style="font-size: 10px; color: #94A3B8;">Meron ${a.meronOdds} | Wala ${a.walaOdds} | BDD ${a.bddOdds}</div>
             </div>
-            <span style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: ${a.status === 'GATE_LOCKED' ? '#7F1D1D' : '#064E3B'}; color: ${a.status === 'GATE_LOCKED' ? '#F87171' : '#34D399'};">
+            <span class="arena-badge" data-arena-id="${a.id}" data-seconds="${a.timeRemainingSeconds}" style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: ${a.status === 'GATE_LOCKED' ? '#7F1D1D' : '#064E3B'}; color: ${a.status === 'GATE_LOCKED' ? '#F87171' : '#34D399'};">
               ${a.timeRemainingSeconds}s ${a.status}
             </span>
           </div>
         `).join('')}
+        </div>
       </div>
 
       <!-- LINE 3 -->
@@ -297,21 +351,21 @@ export function renderDashboardHtml(data) {
         <p style="font-size: 12px; color: #94A3B8; margin-bottom: 12px;">40s autonomous loop + 5s invisible buffer gate.</p>
 
         <div style="background: #1E293B; border-radius: 10px; padding: 14px; text-align: center; margin-bottom: 12px;">
-          <div style="font-size: 11px; color: #94A3B8;">TÀI XỈU 3D COUNTDOWN</div>
-          <div id="dash-countdown-timer" style="font-size: 32px; font-weight: 900; color: ${taixiu.state.timeLeft <= 5 ? '#EF4444' : '#F59E0B'};">
+          <div style="font-size: 11px; color: #94A3B8; font-weight: 700;">TÀI XỈU 3D COUNTDOWN</div>
+          <div id="dash-countdown-timer" style="font-size: 34px; font-weight: 900; color: ${taixiu.state.timeLeft <= 5 ? '#EF4444' : '#F59E0B'}; transition: color 0.3s;">
             ${taixiu.state.timeLeft}s
           </div>
           <div style="display: flex; justify-content: center; gap: 8px; margin: 10px 0;">
-            <span class="dice-pill">${dicePips[taixiu.state.dice[0]] || taixiu.state.dice[0]}</span>
-            <span class="dice-pill">${dicePips[taixiu.state.dice[1]] || taixiu.state.dice[1]}</span>
-            <span class="dice-pill">${dicePips[taixiu.state.dice[2]] || taixiu.state.dice[2]}</span>
+            <span class="dice-pill" id="dash-dice-0">${dicePips[taixiu.state.dice[0]] || taixiu.state.dice[0]}</span>
+            <span class="dice-pill" id="dash-dice-1">${dicePips[taixiu.state.dice[1]] || taixiu.state.dice[1]}</span>
+            <span class="dice-pill" id="dash-dice-2">${dicePips[taixiu.state.dice[2]] || taixiu.state.dice[2]}</span>
           </div>
-          <div style="font-size: 16px; font-weight: 800; color: ${taixiu.state.outcome === 'TAI' ? '#EF4444' : '#3B82F6'};">
+          <div id="dash-outcome" style="font-size: 16px; font-weight: 800; color: ${taixiu.state.outcome === 'TAI' ? '#EF4444' : '#3B82F6'};">
             ${taixiu.state.outcome === 'TAI' ? '🔴 TÀI (11-17)' : '🔵 XỈU (4-10)'} — Tổng: ${taixiu.state.totalScore}
           </div>
         </div>
 
-        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        <div id="dash-history-container" style="display: flex; gap: 6px; flex-wrap: wrap;">
           ${(taixiu.state.history || []).slice(0, 14).map((h) => `
             <div style="width: 24px; height: 24px; border-radius: 50%; background: ${h.outcome === 'TAI' ? '#EF4444' : '#3B82F6'}; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center;" title="Round ${h.roundId}: ${h.outcome} (${h.total})">
               ${h.outcome === 'TAI' ? 'T' : 'X'}
@@ -353,30 +407,116 @@ export function renderDashboardHtml(data) {
   </div>
 
   <script>
-    let dashSec = ${taixiu.state.timeLeft};
+    const dicePipsMap = { 1: '⚀', 2: '⚁', 3: '⚂', 4: '⚃', 5: '⚄', 6: '⚅' };
+    
+    // 1. TÀI XỈU MONOTONIC MATH CLOCK (Guaranteed smooth countdown without latency jumping)
+    let currentRoundId = "${taixiu.state.roundId}";
+    let targetEndTime = Date.now() + (${taixiu.state.timeLeft} * 1000);
     const dashTimer = document.getElementById('dash-countdown-timer');
-    setInterval(() => {
-      if (dashSec > 0) {
-        dashSec--;
-        if (dashTimer) {
-          dashTimer.textContent = dashSec + 's';
-          dashTimer.style.color = dashSec <= 5 ? '#EF4444' : '#F59E0B';
+    const dice0 = document.getElementById('dash-dice-0');
+    const dice1 = document.getElementById('dash-dice-1');
+    const dice2 = document.getElementById('dash-dice-2');
+    const outcomeEl = document.getElementById('dash-outcome');
+    const historyContainer = document.getElementById('dash-history-container');
+
+    function tickTaiXiu() {
+      const remainingMs = targetEndTime - Date.now();
+      const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+      
+      if (dashTimer) {
+        if (remaining > 0) {
+          dashTimer.textContent = remaining + 's';
+          dashTimer.style.color = remaining <= 5 ? '#EF4444' : '#F59E0B';
+        } else {
+          dashTimer.textContent = '0s (MỞ BÁT)';
+          dashTimer.style.color = '#EF4444';
         }
       }
+    }
+
+    // 250ms tick interval for ultra-smooth monotonic transitions
+    setInterval(tickTaiXiu, 250);
+
+    // 2. COCKFIGHT ARENA SYNCHRONIZED TIMERS
+    const arenaBadges = document.querySelectorAll('.arena-badge');
+    const arenaTimes = {};
+    arenaBadges.forEach(b => {
+      const id = b.getAttribute('data-arena-id');
+      const sec = parseInt(b.getAttribute('data-seconds') || '0', 10);
+      arenaTimes[id] = Date.now() + (sec * 1000);
+    });
+
+    setInterval(() => {
+      arenaBadges.forEach(b => {
+        const id = b.getAttribute('data-arena-id');
+        if (arenaTimes[id]) {
+          const rem = Math.max(0, Math.ceil((arenaTimes[id] - Date.now()) / 1000));
+          if (rem <= 3) {
+            b.textContent = rem + 's GATE_LOCKED';
+            b.style.background = '#7F1D1D';
+            b.style.color = '#F87171';
+          } else {
+            b.textContent = rem + 's BETTING_OPEN';
+            b.style.background = '#064E3B';
+            b.style.color = '#34D399';
+          }
+          if (rem === 0) {
+            arenaTimes[id] = Date.now() + (45 * 1000); // Smooth cycle reset
+          }
+        }
+      });
     }, 1000);
 
+    // 3. SEAMLESS BACKGROUND TELEMETRY SYNC (Zero page reload, zero jumping)
+    let syncRunning = false;
     setInterval(async () => {
+      if (syncRunning) return;
+      syncRunning = true;
       try {
         const res = await fetch('/api/line3/internal/casino/taixiu/state?format=json');
         if (res.ok) {
           const d = await res.json();
-          if (d?.state?.timeLeft !== undefined) {
-            dashSec = d.state.timeLeft;
-            if (dashTimer) dashTimer.textContent = dashSec + 's';
+          if (d?.state) {
+            const s = d.state;
+
+            // When new round or reveal arrives
+            if (s.roundId !== currentRoundId) {
+              currentRoundId = s.roundId;
+              targetEndTime = Date.now() + (s.timeLeft * 1000);
+              
+              // Smoothly update dice in place
+              if (dice0) dice0.textContent = dicePipsMap[s.dice[0]] || s.dice[0];
+              if (dice1) dice1.textContent = dicePipsMap[s.dice[1]] || s.dice[1];
+              if (dice2) dice2.textContent = dicePipsMap[s.dice[2]] || s.dice[2];
+
+              // Smoothly update outcome banner in place
+              if (outcomeEl) {
+                const isTai = s.outcome === 'TAI';
+                outcomeEl.textContent = (isTai ? '🔴 TÀI (11-17)' : '🔵 XỈU (4-10)') + ' — Tổng: ' + s.totalScore;
+                outcomeEl.style.color = isTai ? '#EF4444' : '#3B82F6';
+              }
+
+              // Update history beads
+              if (historyContainer && Array.isArray(s.history)) {
+                historyContainer.innerHTML = s.history.slice(0, 14).map(h => {
+                  const isT = h.outcome === 'TAI';
+                  return '<div style="width: 24px; height: 24px; border-radius: 50%; background: ' + (isT ? '#EF4444' : '#3B82F6') + '; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center;" title="Round ' + h.roundId + ': ' + h.outcome + ' (' + h.total + ')">' + (isT ? 'T' : 'X') + '</div>';
+                }).join('');
+              }
+            } else {
+              // Same round: only soft-adjust target if drift is excessive (> 2.5s) to eliminate jitter
+              const currentClientSec = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+              if (Math.abs(s.timeLeft - currentClientSec) > 2.5) {
+                targetEndTime = Date.now() + (s.timeLeft * 1000);
+              }
+            }
           }
         }
-      } catch (e) {}
-    }, 3000);
+      } catch (e) {
+      } finally {
+        syncRunning = false;
+      }
+    }, 2000);
   </script>
 </body>
 </html>`;
