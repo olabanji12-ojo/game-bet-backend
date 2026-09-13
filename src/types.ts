@@ -97,17 +97,33 @@ export interface Wallet {
 export type ArenaId = 'CPC1' | 'CPC2' | 'CPC3' | 'CPC4' | 'PH1' | 'PH2' | 'PH3';
 export type CockfightChoice = 'MERON' | 'WALA' | 'BDD';
 
+export type ArenaPhase = 'CLOSED' | 'WEIGHING' | 'BETTING_OPEN' | 'GATE_LOCKED' | 'FIGHTING' | 'SETTLING';
+
+export interface RoosterProfile {
+  breed: string;
+  weightKg: number;
+  spurType: string;
+  record: string;
+  tag: string;
+}
+
 export interface CockfightArena {
   id: ArenaId;
   name: string;
   location: string;
-  status: 'BETTING_OPEN' | 'GATE_LOCKED' | 'FIGHTING' | 'SETTLING';
+  isOpen: boolean;
+  operatingHours: string;
+  status: 'BETTING_OPEN' | 'GATE_LOCKED' | 'FIGHTING' | 'SETTLING' | 'WEIGHING' | 'CLOSED';
+  phase: ArenaPhase;
   meronOdds: number;
   walaOdds: number;
   bddOdds: number;
   timeRemainingSeconds: number;
   streamUrl: string;
   currentMatch: number;
+  meronRooster?: RoosterProfile;
+  walaRooster?: RoosterProfile;
+  customStreamUrl?: string;
 }
 
 // Casino 3D Domain Types
