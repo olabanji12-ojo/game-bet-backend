@@ -128,12 +128,77 @@ streamProxyRouter.get('/presets', (req, res) => {
     return res.json({
         success: true,
         presets: DEFAULT_PRESET_FEEDS,
+        teachingSources: cockfightService.getTeachingStreamSources(),
         classroomMode: cockfightService.isClassroomMode(),
         timestamp: new Date().toISOString()
     });
 });
 /**
- * 4. Instructor Control: Custom Stream Override & Speed Toggle
+ * 4. Active Stream Status & Student UI Real-time Sync
+ */
+streamProxyRouter.get('/active-source', (req, res) => {
+    const activeData = cockfightService.getActiveTeachingStream();
+    return res.json({
+        success: true,
+        ...activeData,
+        teachingSources: cockfightService.getTeachingStreamSources(),
+        timestamp: new Date().toISOString()
+    });
+});
+/**
+ * 5. Instructor Stream Source Override & Failover Switch
+ */
+streamProxyRouter.post('/active-source', (req, res) => {
+    const { sourceId, customUrl } = req.body;
+    if (sourceId) {
+        const ok = cockfightService.setActiveTeachingSource(sourceId);
+        if (!ok) {
+            return res.status(400).json({ success: false, error: `Invalid source identifier: ${sourceId}` });
+        }
+    }
+    if (customUrl) {
+        const validation = cockfightService.validateStreamUrl(customUrl);
+        if (!validation.isVideo) {
+            return res.status(400).json({
+                success: false,
+                error: validation.reason || 'URL không phải là luồng video hợp lệ.'
+            });
+        }
+    }
+    return res.json({
+        success: true,
+        message: 'Nguồn phát trực tiếp đã được cập nhật.',
+        ...cockfightService.getActiveTeachingStream(),
+        timestamp: new Date().toISOString()
+    });
+});
+/**
+ * 6. Video Stream URL Validator
+ * Checks if a link is a real video/stream link vs raw non-video web page
+ */
+streamProxyRouter.post('/validate', (req, res) => {
+    const { url } = req.body;
+    const validation = cockfightService.validateStreamUrl(url);
+    return res.json({
+        success: true,
+        ...validation
+    });
+});
+/**
+ * 7. Live Health & Failover Log Inspector
+ */
+streamProxyRouter.get('/health', (req, res) => {
+    return res.json({
+        success: true,
+        status: 'ACTIVE',
+        teachingSources: cockfightService.getTeachingStreamSources(),
+        activeStream: cockfightService.getActiveTeachingStream(),
+        failoverLogs: cockfightService.getStreamFailoverLogs(),
+        timestamp: new Date().toISOString()
+    });
+});
+/**
+ * 8. Instructor Control: Custom Arena Stream Override & Speed Toggle
  */
 streamProxyRouter.post('/configure-arena', (req, res) => {
     const { arenaId, customStreamUrl, classroomMode } = req.body;

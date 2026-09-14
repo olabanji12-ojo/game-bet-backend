@@ -5,13 +5,77 @@ const ROOSTER_BREEDS = ['Gà Asil', 'Gà Tre', 'Gà Peru', 'Gà Kelso', 'Gà Swe
 const SPUR_TYPES_CAMBODIA = ['Cựa Sắt Tròn (Thomo)', 'Cựa Tháp Sắt', 'Cựa Tròn 2.5 Inch'];
 const SPUR_TYPES_PHILIPPINES = ['Cựa Dao Slasher (Pasay)', 'Cựa Dao Double Blade', 'Cựa Dao Derby'];
 
+export interface TeachingStreamSource {
+  id: string;
+  sourceKey: 'source1' | 'source2' | 'source3' | 'fallback_hls';
+  name: string;
+  provider: string;
+  url: string;
+  type: 'hls' | 'iframe' | 'proxy_iframe' | 'mp4';
+  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE';
+  lastChecked?: string;
+  latencyMs?: number;
+}
+
+export interface StreamFailoverLog {
+  timestamp: string;
+  fromSource: string;
+  toSource: string;
+  reason: string;
+  durationMs: number;
+}
+
+const DEFAULT_TEACHING_SOURCES: TeachingStreamSource[] = [
+  {
+    id: 'source1',
+    sourceKey: 'source1',
+    name: 'Source 1: ga6789.com (Thomo Center)',
+    provider: 'ga6789.com',
+    url: 'https://ga6789.com',
+    type: 'proxy_iframe',
+    status: 'ONLINE'
+  },
+  {
+    id: 'source2',
+    sourceKey: 'source2',
+    name: 'Source 2: bj988.com (Pasay Center)',
+    provider: 'bj988.com',
+    url: 'https://bj988.com/vn/vn',
+    type: 'proxy_iframe',
+    status: 'ONLINE'
+  },
+  {
+    id: 'source3',
+    sourceKey: 'source3',
+    name: 'Source 3: daga88.net (Backup Feed)',
+    provider: 'daga88.net',
+    url: 'https://daga88.net',
+    type: 'proxy_iframe',
+    status: 'ONLINE'
+  },
+  {
+    id: 'fallback_hls',
+    sourceKey: 'fallback_hls',
+    name: 'Source 4: High-Bitrate Live Feed (HLS 60FPS Backup)',
+    provider: 'mux.dev',
+    url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+    type: 'hls',
+    status: 'ONLINE'
+  }
+];
+
 export class CockfightService {
   private arenas: Map<ArenaId, CockfightArena> = new Map();
   private classroomMode: boolean = true; // Enabled by default for teaching/demo, toggleable
+  private teachingSources: TeachingStreamSource[] = JSON.parse(JSON.stringify(DEFAULT_TEACHING_SOURCES));
+  private activeSourceIndex: number = 0;
+  private failoverLogs: StreamFailoverLog[] = [];
+  private isHealthChecking: boolean = false;
 
   constructor() {
     this.initializeArenas();
     this.startAutonomousLoop();
+    this.startStreamHealthCheckDaemon();
   }
 
   private generateRooster(side: 'MERON' | 'WALA', location: string, matchNum: number): RoosterProfile {
@@ -147,6 +211,175 @@ export class CockfightService {
     return { valid: true };
   }
 
+  // --- LINE 2 STREAM HEALTH & AUTOMATIC FAILOVER ENGINE ---
+
+  public getTeachingStreamSources(): TeachingStreamSource[] {
+    return this.teachingSources;
+  }
+
+  public getActiveTeachingStream(): { activeSource: TeachingStreamSource; index: number; totalSources: number; failoverLogs: StreamFailoverLog[] } {
+    const active = this.teachingSources[this.activeSourceIndex] || this.teachingSources[0];
+    return {
+      activeSource: active,
+      index: this.activeSourceIndex,
+      totalSources: this.teachingSources.length,
+      failoverLogs: this.failoverLogs.slice(-10)
+    };
+  }
+
+  public setActiveTeachingSource(sourceIdOrKey: string): boolean {
+    const idx = this.teachingSources.findIndex(s => s.id === sourceIdOrKey || s.sourceKey === sourceIdOrKey);
+    if (idx === -1) return false;
+    this.activeSourceIndex = idx;
+    return true;
+  }
+
+  public getStreamFailoverLogs(): StreamFailoverLog[] {
+    return this.failoverLogs;
+  }
+
+  /**
+   * Validates if a URL is a true streaming feed vs raw non-video web page
+   */
+  public validateStreamUrl(url: string): { isVideo: boolean; streamType: 'hls' | 'iframe' | 'proxy_iframe' | 'mp4' | 'invalid'; reason?: string } {
+    if (!url || typeof url !== 'string') {
+      return { isVideo: false, streamType: 'invalid', reason: 'URL không được để trống.' };
+    }
+
+    const trimmed = url.trim();
+
+    // 1. Direct HLS
+    if (trimmed.includes('.m3u8') || trimmed.endsWith('.m3u8')) {
+      return { isVideo: true, streamType: 'hls' };
+    }
+
+    // 2. Direct MP4 / WebM
+    if (trimmed.endsWith('.mp4') || trimmed.endsWith('.webm') || trimmed.endsWith('.ts')) {
+      return { isVideo: true, streamType: 'mp4' };
+    }
+
+    // 3. Authorized Live Video Embeds
+    if (
+      trimmed.includes('player.videosv388.com') ||
+      trimmed.includes('youtube.com/embed') ||
+      trimmed.includes('youtu.be') ||
+      trimmed.includes('twitch.tv') ||
+      trimmed.includes('vimeo.com')
+    ) {
+      return { isVideo: true, streamType: 'iframe' };
+    }
+
+    // 4. Authorized Cockfight Webview Centers (ga6789, bj988, daga88)
+    if (
+      trimmed.includes('ga6789.com') ||
+      trimmed.includes('bj988.com') ||
+      trimmed.includes('daga88')
+    ) {
+      return { isVideo: true, streamType: 'proxy_iframe' };
+    }
+
+    // Otherwise reject generic web pages
+    return {
+      isVideo: false,
+      streamType: 'invalid',
+      reason: 'URL này không phải là luồng video trực tiếp hợp lệ. Vui lòng nhập liên kết .m3u8, .mp4 hoặc luồng phát trực tiếp.'
+    };
+  }
+
+  /**
+   * Probes a stream URL with a 2.5s strict timeout
+   */
+  public async probeStreamHealth(url: string): Promise<{ ok: boolean; status: number; latencyMs: number; error?: string }> {
+    const start = Date.now();
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+      const response = await fetch(url, {
+        method: 'HEAD',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Line2-HealthMonitor/1.0)'
+        }
+      }).catch(async () => {
+        // Retry with GET if HEAD is rejected by some CDNs
+        return await fetch(url, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Line2-HealthMonitor/1.0)',
+            'Range': 'bytes=0-1024'
+          }
+        });
+      });
+
+      clearTimeout(timeoutId);
+      const latencyMs = Date.now() - start;
+      const ok = response.status >= 200 && response.status < 400;
+
+      return { ok, status: response.status, latencyMs };
+    } catch (err: any) {
+      const latencyMs = Date.now() - start;
+      return { ok: false, status: 0, latencyMs, error: err?.message || 'Timeout / Connection Refused' };
+    }
+  }
+
+  /**
+   * Trigger automatic failover to the next source in <= 3 seconds
+   */
+  public triggerFailover(reason: string): void {
+    const prevSource = this.teachingSources[this.activeSourceIndex];
+    if (prevSource) {
+      prevSource.status = 'OFFLINE';
+    }
+
+    // Advance to next source
+    const nextIdx = (this.activeSourceIndex + 1) % this.teachingSources.length;
+    const nextSource = this.teachingSources[nextIdx];
+    this.activeSourceIndex = nextIdx;
+
+    const log: StreamFailoverLog = {
+      timestamp: new Date().toISOString(),
+      fromSource: prevSource?.name || 'Unknown',
+      toSource: nextSource?.name || 'Unknown',
+      reason,
+      durationMs: 2500
+    };
+
+    this.failoverLogs.push(log);
+    console.warn(`⚠️ [LINE 2 FAILOVER]: Switched from [${log.fromSource}] to [${log.toSource}] (Reason: ${reason})`);
+  }
+
+  /**
+   * Background asynchronous health daemon running every 2.5s
+   */
+  private startStreamHealthCheckDaemon(): void {
+    setInterval(async () => {
+      if (this.isHealthChecking) return;
+      this.isHealthChecking = true;
+
+      try {
+        const activeSource = this.teachingSources[this.activeSourceIndex];
+        if (activeSource && activeSource.url) {
+          const health = await this.probeStreamHealth(activeSource.url);
+          activeSource.lastChecked = new Date().toISOString();
+          activeSource.latencyMs = health.latencyMs;
+
+          if (!health.ok) {
+            // Stream is down / black screen / firewall block -> auto-failover in <= 3s
+            this.triggerFailover(`Health check failed (Status: ${health.status}, Error: ${health.error || 'Network unreachable'})`);
+          } else {
+            activeSource.status = 'ONLINE';
+          }
+        }
+      } catch (err) {
+        // Guard against uncaught daemon exceptions
+      } finally {
+        this.isHealthChecking = false;
+      }
+    }, 2500);
+  }
+
   private startAutonomousLoop(): void {
     setInterval(() => {
       this.arenas.forEach((arena) => {
@@ -211,3 +444,4 @@ export class CockfightService {
 }
 
 export const cockfightService = new CockfightService();
+
