@@ -4,9 +4,27 @@ const SPUR_TYPES_CAMBODIA = ['Cựa Sắt Tròn (Thomo)', 'Cựa Tháp Sắt', '
 const SPUR_TYPES_PHILIPPINES = ['Cựa Dao Slasher (Pasay)', 'Cựa Dao Double Blade', 'Cựa Dao Derby'];
 const DEFAULT_TEACHING_SOURCES = [
     {
+        id: 'sv388_live_direct',
+        sourceKey: 'sv388_live_direct',
+        name: 'SV388 Direct Live Player (Pasay/Thomo)',
+        provider: 'player.videosv388.com',
+        url: 'https://player.videosv388.com/?play=a254ad13-c625-4dfe-bf75-50beb9db8967',
+        type: 'iframe',
+        status: 'ONLINE'
+    },
+    {
+        id: 'fallback_hls',
+        sourceKey: 'fallback_hls',
+        name: 'Source 2: High-Bitrate Live Feed (HLS 60FPS Backup)',
+        provider: 'mux.dev',
+        url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+        type: 'hls',
+        status: 'ONLINE'
+    },
+    {
         id: 'source1',
         sourceKey: 'source1',
-        name: 'Source 1: ga6789.com (Thomo Center)',
+        name: 'Source 3: ga6789.com (Thomo Center)',
         provider: 'ga6789.com',
         url: 'https://ga6789.com',
         type: 'proxy_iframe',
@@ -15,7 +33,7 @@ const DEFAULT_TEACHING_SOURCES = [
     {
         id: 'source2',
         sourceKey: 'source2',
-        name: 'Source 2: bj988.com (Pasay Center)',
+        name: 'Source 4: bj988.com (Pasay Center)',
         provider: 'bj988.com',
         url: 'https://bj988.com/vn/vn',
         type: 'proxy_iframe',
@@ -24,19 +42,10 @@ const DEFAULT_TEACHING_SOURCES = [
     {
         id: 'source3',
         sourceKey: 'source3',
-        name: 'Source 3: daga88.net (Backup Feed)',
+        name: 'Source 5: daga88.net (Backup Feed)',
         provider: 'daga88.net',
         url: 'https://daga88.net',
         type: 'proxy_iframe',
-        status: 'ONLINE'
-    },
-    {
-        id: 'fallback_hls',
-        sourceKey: 'fallback_hls',
-        name: 'Source 4: High-Bitrate Live Feed (HLS 60FPS Backup)',
-        provider: 'mux.dev',
-        url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-        type: 'hls',
         status: 'ONLINE'
     }
 ];
@@ -184,10 +193,29 @@ export class CockfightService {
     }
     setActiveTeachingSource(sourceIdOrKey) {
         const idx = this.teachingSources.findIndex(s => s.id === sourceIdOrKey || s.sourceKey === sourceIdOrKey);
-        if (idx === -1)
-            return false;
+        if (idx === -1) {
+            // If not in presets, keep current index
+            return true;
+        }
         this.activeSourceIndex = idx;
         return true;
+    }
+    setCustomTeachingUrl(url) {
+        const trimmed = url.trim();
+        if (!trimmed)
+            return;
+        const validation = this.validateStreamUrl(trimmed);
+        const newSource = {
+            id: `custom-${Date.now()}`,
+            sourceKey: `custom-${Date.now()}`,
+            name: `Custom: ${trimmed.substring(0, 32)}...`,
+            provider: 'custom',
+            url: trimmed,
+            type: validation.streamType === 'invalid' ? 'iframe' : validation.streamType,
+            status: 'ONLINE'
+        };
+        this.teachingSources.unshift(newSource);
+        this.activeSourceIndex = 0;
     }
     getStreamFailoverLogs() {
         return this.failoverLogs;

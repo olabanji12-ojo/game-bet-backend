@@ -151,19 +151,10 @@ streamProxyRouter.get('/active-source', (req, res) => {
 streamProxyRouter.post('/active-source', (req, res) => {
     const { sourceId, customUrl } = req.body;
     if (sourceId) {
-        const ok = cockfightService.setActiveTeachingSource(sourceId);
-        if (!ok) {
-            return res.status(400).json({ success: false, error: `Invalid source identifier: ${sourceId}` });
-        }
+        cockfightService.setActiveTeachingSource(sourceId);
     }
     if (customUrl) {
-        const validation = cockfightService.validateStreamUrl(customUrl);
-        if (!validation.isVideo) {
-            return res.status(400).json({
-                success: false,
-                error: validation.reason || 'URL không phải là luồng video hợp lệ.'
-            });
-        }
+        cockfightService.setCustomTeachingUrl(customUrl);
     }
     return res.json({
         success: true,
