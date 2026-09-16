@@ -5,36 +5,18 @@ const SPUR_TYPES_CAMBODIA = ['Cựa Sắt Tròn (Thomo)', 'Cựa Tháp Sắt', '
 const SPUR_TYPES_PHILIPPINES = ['Cựa Dao Slasher (Pasay)', 'Cựa Dao Double Blade', 'Cựa Dao Derby'];
 const DEFAULT_TEACHING_SOURCES = [
     {
-        id: 'bj88_live_direct',
-        sourceKey: 'bj88_live_direct',
-        name: 'BJ88 Direct Live (Pasay/Thomo)',
-        provider: 'bj88.com',
-        url: 'https://bj88.com/vn/vn',
-        type: 'iframe',
-        status: 'ONLINE'
-    },
-    {
-        id: 'source1',
-        sourceKey: 'source1',
-        name: 'Source 2: ga6789.com (Thomo Center)',
-        provider: 'ga6789.com',
-        url: 'https://ga6789.com',
-        type: 'iframe',
-        status: 'ONLINE'
-    },
-    {
-        id: 'source2',
-        sourceKey: 'source2',
-        name: 'Source 3: daga88.net (Backup Feed)',
-        provider: 'daga88.net',
-        url: 'https://daga88.net',
+        id: 'daga88_primary',
+        sourceKey: 'daga88_primary',
+        name: 'DAGA88 — Recorded Match Feed (player.videosv388.com)',
+        provider: 'player.videosv388.com',
+        url: 'https://player.videosv388.com',
         type: 'iframe',
         status: 'ONLINE'
     },
     {
         id: 'fallback_hls',
         sourceKey: 'fallback_hls',
-        name: 'Source 4: High-Bitrate Live Feed (HLS 60FPS Backup)',
+        name: 'Mux HLS Live Stream (60FPS Backup)',
         provider: 'mux.dev',
         url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
         type: 'hls',
@@ -228,7 +210,7 @@ export class CockfightService {
         if (trimmed.endsWith('.mp4') || trimmed.endsWith('.webm') || trimmed.endsWith('.ts')) {
             return { isVideo: true, streamType: 'mp4' };
         }
-        // 3. Authorized Live Video Embeds
+        // 3. DAGA88 player and other trusted video embeds
         if (trimmed.includes('player.videosv388.com') ||
             trimmed.includes('youtube.com/embed') ||
             trimmed.includes('youtu.be') ||
@@ -236,17 +218,11 @@ export class CockfightService {
             trimmed.includes('vimeo.com')) {
             return { isVideo: true, streamType: 'iframe' };
         }
-        // 4. Authorized Cockfight Webview Centers (ga6789, bj988, daga88)
-        if (trimmed.includes('ga6789.com') ||
-            trimmed.includes('bj988.com') ||
-            trimmed.includes('daga88')) {
-            return { isVideo: true, streamType: 'proxy_iframe' };
-        }
         // Otherwise reject generic web pages
         return {
             isVideo: false,
             streamType: 'invalid',
-            reason: 'URL này không phải là luồng video trực tiếp hợp lệ. Vui lòng nhập liên kết .m3u8, .mp4 hoặc luồng phát trực tiếp.'
+            reason: 'URL này không phải là luồng video trực tiếp hợp lệ. Vui lòng nhập liên kết .m3u8, .mp4 hoặc player.videosv388.com.'
         };
     }
     /**

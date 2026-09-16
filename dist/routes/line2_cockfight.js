@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { cockfightService } from '../services/cockfightService.js';
+import { daga88Scraper } from '../services/daga88Scraper.js';
 const router = Router();
 // LINE 2: GET /api/line2/cockfight/arenas
 router.get('/arenas', (req, res) => {
@@ -87,5 +88,54 @@ router.post('/override-phase', (req, res) => {
         ...result,
         timestamp: Date.now()
     });
+});
+// ─────────────────────────────────────────────────────────────────
+// LINE 2: DAGA88 REAL MATCH VIDEO ENDPOINTS (player.videosv388.com)
+// ─────────────────────────────────────────────────────────────────
+// GET /api/line2/cockfight/videos/:arenaId
+// Returns real scraped match videos for a given arena
+router.get('/videos/:arenaId', async (req, res) => {
+    const arenaId = req.params.arenaId.toUpperCase();
+    const data = await daga88Scraper.getVideosForArena(arenaId);
+    if (!data || data.matches.length === 0) {
+        return res.status(404).json({
+            success: false,
+            arenaId,
+            error: 'No match videos available for this arena today. Try again later.',
+            matches: []
+        });
+    }
+    res.json({
+        success: true,
+        arenaId,
+        arenaLabel: data.arenaLabel,
+        date: data.date,
+        isStale: data.isStale,
+        fetchedAt: data.fetchedAt,
+        matchCount: data.matches.length,
+        matches: data.matches
+    });
+});
+// GET /api/line2/cockfight/videos
+// Returns all cached arena videos in one call
+router.get('/videos', async (_req, res) => {
+    const all = daga88Scraper.getAllCachedVideos();
+    const cacheStatus = daga88Scraper.getCacheStatus();
+    res.json({
+        success: true,
+        source: 'DAGA88 / qynzy.nl (player.videosv388.com)',
+        cacheStatus,
+        arenas: all
+    });
+});
+// POST /api/line2/cockfight/videos/refresh/:arenaId
+// Force re-scrape a specific arena
+router.post('/videos/refresh/:arenaId', async (req, res) => {
+    const arenaKey = req.params.arenaId.toUpperCase();
+    const data = await daga88Scraper.forceRefresh(arenaKey);
+    if (!data) {
+        return res.status(404).json({ success: false, error: `No videos found for ${arenaKey}` });
+    }
+    res.json({ success: true, arenaKey, matchCount: data.matches.length, fetchedAt: data.fetchedAt });
 });
 export const line2Router = router;
