@@ -463,7 +463,9 @@ export class CockfightService {
       });
     } else if (phase === 'FIGHTING') {
       arena.timeRemainingSeconds = this.classroomMode ? 25 : 90;
-    } else if (phase === 'SETTLING') {
+    } else if (phase === 'SETTLING' || (phase as string) === 'RESULT_ANNOUNCED') {
+      arena.phase = 'SETTLING';
+      arena.status = 'SETTLING';
       arena.timeRemainingSeconds = this.classroomMode ? 8 : 20;
       const winResult = winner || (Math.random() < 0.48 ? 'MERON' : Math.random() < 0.94 ? 'WALA' : 'BDD');
       wsEngine.broadcast({

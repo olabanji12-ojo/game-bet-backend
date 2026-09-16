@@ -34,6 +34,19 @@ export class WebSocketEngine {
         timestamp: Date.now()
       }));
 
+      // Send initial state sync of all arenas
+      try {
+        const { cockfightService } = require('./cockfightService');
+        const arenas = cockfightService.getAllArenas();
+        ws.send(JSON.stringify({
+          type: 'STATE_SYNC',
+          data: { arenas },
+          timestamp: Date.now()
+        }));
+      } catch {
+        // Service resolving
+      }
+
       ws.on('message', (msg) => {
         try {
           const parsed = JSON.parse(msg.toString());
