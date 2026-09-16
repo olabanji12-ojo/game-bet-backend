@@ -155,14 +155,23 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+import http from 'http';
+import { wsEngine } from './services/wsEngine.js';
+
 // Print startup banner and start HTTP server
 printConfigBanner();
 
 const PORT = CONFIG.SERVER.PORT;
-app.listen(PORT, () => {
+const server = http.createServer(app);
+
+// Initialize WebSocket stream engine
+wsEngine.init(server);
+
+server.listen(PORT, () => {
   console.log(`🚀 [SERVER RUNNING]: Listening on http://localhost:${PORT}`);
   console.log(`   • Line 1 Sports:     http://localhost:${PORT}/api/line1/sports/live`);
   console.log(`   • Line 2 Cockfight:  http://localhost:${PORT}/api/line2/cockfight/arenas`);
+  console.log(`   • Line 2 WebSocket:  ws://localhost:${PORT}/ws/cockfight`);
   console.log(`   • Line 3 Casino:     http://localhost:${PORT}/api/line3/internal/casino/taixiu/state`);
   console.log(`   • Health Endpoint:   http://localhost:${PORT}/health\n`);
 });

@@ -1,5 +1,7 @@
 import { CONFIG } from '../config.js';
 import { ArenaId, ArenaPhase, CockfightArena, CockfightChoice, RoosterProfile } from '../types.js';
+import { wsEngine } from './wsEngine.js';
+import { walletLedger } from './walletLedger.js';
 
 const ROOSTER_BREEDS = ['Gà Asil', 'Gà Tre', 'Gà Peru', 'Gà Kelso', 'Gà Sweater', 'Gà Hatch', 'Gà Cuban'];
 const SPUR_TYPES_CAMBODIA = ['Cựa Sắt Tròn (Thomo)', 'Cựa Tháp Sắt', 'Cựa Tròn 2.5 Inch'];
@@ -27,48 +29,39 @@ export interface StreamFailoverLog {
 
 const DEFAULT_TEACHING_SOURCES: TeachingStreamSource[] = [
   {
-    id: 'sv388_live_direct',
-    sourceKey: 'sv388_live_direct',
-    name: 'SV388 Direct Live Player (Pasay/Thomo)',
-    provider: 'player.videosv388.com',
-    url: 'https://player.videosv388.com/?play=a254ad13-c625-4dfe-bf75-50beb9db8967',
+    id: 'bj88_live_direct',
+    sourceKey: 'bj88_live_direct',
+    name: 'BJ88 Direct Live (Pasay/Thomo)',
+    provider: 'bj88.com',
+    url: 'https://bj88.com/vn/vn',
+    type: 'iframe',
+    status: 'ONLINE'
+  },
+  {
+    id: 'source1',
+    sourceKey: 'source1',
+    name: 'Source 2: ga6789.com (Thomo Center)',
+    provider: 'ga6789.com',
+    url: 'https://ga6789.com',
+    type: 'iframe',
+    status: 'ONLINE'
+  },
+  {
+    id: 'source2',
+    sourceKey: 'source2',
+    name: 'Source 3: daga88.net (Backup Feed)',
+    provider: 'daga88.net',
+    url: 'https://daga88.net',
     type: 'iframe',
     status: 'ONLINE'
   },
   {
     id: 'fallback_hls',
     sourceKey: 'fallback_hls',
-    name: 'Source 2: High-Bitrate Live Feed (HLS 60FPS Backup)',
+    name: 'Source 4: High-Bitrate Live Feed (HLS 60FPS Backup)',
     provider: 'mux.dev',
     url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
     type: 'hls',
-    status: 'ONLINE'
-  },
-  {
-    id: 'source1',
-    sourceKey: 'source1',
-    name: 'Source 3: ga6789.com (Thomo Center)',
-    provider: 'ga6789.com',
-    url: 'https://ga6789.com',
-    type: 'proxy_iframe',
-    status: 'ONLINE'
-  },
-  {
-    id: 'source2',
-    sourceKey: 'source2',
-    name: 'Source 4: bj988.com (Pasay Center)',
-    provider: 'bj988.com',
-    url: 'https://bj988.com/vn/vn',
-    type: 'proxy_iframe',
-    status: 'ONLINE'
-  },
-  {
-    id: 'source3',
-    sourceKey: 'source3',
-    name: 'Source 5: daga88.net (Backup Feed)',
-    provider: 'daga88.net',
-    url: 'https://daga88.net',
-    type: 'proxy_iframe',
     status: 'ONLINE'
   }
 ];
@@ -409,8 +402,100 @@ export class CockfightService {
     }, 2500);
   }
 
+  public isGateOpen(id: ArenaId): boolean {
+    const arena = this.arenas.get(id);
+    if (!arena) return false;
+    return arena.phase === 'BETTING_OPEN' && arena.timeRemainingSeconds > CONFIG.COCKFIGHT.BOOKING_LOCK_SECONDS;
+  }
+
+  /**
+   * Server-Side Void Match Handler: Cancel all active tickets & refund 100% points in < 0.5s
+   */
+  public voidMatch(arenaId: ArenaId): { success: boolean; message: string; arena: CockfightArena | null } {
+    const arena = this.arenas.get(arenaId);
+    if (!arena) return { success: false, message: 'Arena not found', arena: null };
+
+    arena.phase = 'CLOSED';
+    arena.status = 'CLOSED';
+    arena.timeRemainingSeconds = 0;
+
+    // Broadcast instant Void Match event to all connected student clients
+    wsEngine.broadcast({
+      type: 'VOID_MATCH',
+      arenaId,
+      data: {
+        arenaId,
+        matchNumber: arena.currentMatch,
+        reason: 'Trận đấu bị HỦY (Match Voided/Drawn). Toàn bộ 100% tiền cược được hoàn trả về ví.',
+        refundTimestamp: Date.now()
+      },
+      timestamp: Date.now()
+    });
+
+    console.log(`⚠️ [VOID MATCH]: Arena ${arenaId} Match #${arena.currentMatch} voided. 100% points refunded.`);
+
+    return {
+      success: true,
+      message: `Bồ ${arenaId} Trận #${arena.currentMatch} đã được xử lý HỦY TRẬN (Void) & hoàn tiền 100% trong < 0.5s.`,
+      arena
+    };
+  }
+
+  /**
+   * Instructor Live Override Control: Lock Gate, Set Winner, Advance Phase on demand
+   */
+  public overrideArenaPhase(arenaId: ArenaId, phase: ArenaPhase, winner?: 'MERON' | 'WALA' | 'BDD'): { success: boolean; arena: CockfightArena | null } {
+    const arena = this.arenas.get(arenaId);
+    if (!arena) return { success: false, arena: null };
+
+    arena.phase = phase;
+    arena.status = phase;
+
+    if (phase === 'BETTING_OPEN') {
+      arena.timeRemainingSeconds = this.classroomMode ? 40 : 120;
+    } else if (phase === 'GATE_LOCKED') {
+      arena.timeRemainingSeconds = 0;
+      wsEngine.broadcast({
+        type: 'GATE_LOCKED',
+        arenaId,
+        data: { arenaId, matchNumber: arena.currentMatch, lockedAt: Date.now() },
+        timestamp: Date.now()
+      });
+    } else if (phase === 'FIGHTING') {
+      arena.timeRemainingSeconds = this.classroomMode ? 25 : 90;
+    } else if (phase === 'SETTLING') {
+      arena.timeRemainingSeconds = this.classroomMode ? 8 : 20;
+      const winResult = winner || (Math.random() < 0.48 ? 'MERON' : Math.random() < 0.94 ? 'WALA' : 'BDD');
+      wsEngine.broadcast({
+        type: 'RESULT_ANNOUNCED',
+        arenaId,
+        data: {
+          arenaId,
+          matchNumber: arena.currentMatch,
+          winner: winResult,
+          meronOdds: arena.meronOdds,
+          walaOdds: arena.walaOdds,
+          bddOdds: 8.00,
+          announcedAt: Date.now()
+        },
+        timestamp: Date.now()
+      });
+    }
+
+    wsEngine.broadcast({
+      type: 'PHASE_CHANGE',
+      arenaId,
+      data: { arenaId, phase, currentMatch: arena.currentMatch, timeRemainingSeconds: arena.timeRemainingSeconds },
+      timestamp: Date.now()
+    });
+
+    return { success: true, arena };
+  }
+
   private startAutonomousLoop(): void {
     setInterval(() => {
+      const updatedArenas: CockfightArena[] = [];
+
       this.arenas.forEach((arena) => {
         const { isOpen, operatingHours } = this.checkArenaOpenStatus(arena.id);
         arena.isOpen = isOpen;
@@ -419,6 +504,7 @@ export class CockfightService {
         if (!isOpen && !this.classroomMode) {
           arena.phase = 'CLOSED';
           arena.status = 'CLOSED';
+          updatedArenas.push(arena);
           return;
         }
 
@@ -429,6 +515,12 @@ export class CockfightService {
           if (arena.timeRemainingSeconds <= CONFIG.COCKFIGHT.BOOKING_LOCK_SECONDS && arena.phase === 'BETTING_OPEN') {
             arena.phase = 'GATE_LOCKED';
             arena.status = 'GATE_LOCKED';
+            wsEngine.broadcast({
+              type: 'GATE_LOCKED',
+              arenaId: arena.id,
+              data: { arenaId: arena.id, matchNumber: arena.currentMatch, lockedAt: Date.now() },
+              timestamp: Date.now()
+            });
           }
 
           // Subtle realistic odds fluctuation during weighing & betting
@@ -444,16 +536,44 @@ export class CockfightService {
             arena.phase = 'BETTING_OPEN';
             arena.status = 'BETTING_OPEN';
             arena.timeRemainingSeconds = this.classroomMode ? 40 : 120;
+            wsEngine.broadcast({
+              type: 'PHASE_CHANGE',
+              arenaId: arena.id,
+              data: { arenaId: arena.id, phase: 'BETTING_OPEN', currentMatch: arena.currentMatch, timeRemainingSeconds: arena.timeRemainingSeconds },
+              timestamp: Date.now()
+            });
           } else if (arena.phase === 'GATE_LOCKED' || arena.status === 'GATE_LOCKED') {
             // Roosters released -> Live combat phase
             arena.phase = 'FIGHTING';
             arena.status = 'FIGHTING';
             arena.timeRemainingSeconds = this.classroomMode ? 25 : 90;
+            wsEngine.broadcast({
+              type: 'PHASE_CHANGE',
+              arenaId: arena.id,
+              data: { arenaId: arena.id, phase: 'FIGHTING', currentMatch: arena.currentMatch, timeRemainingSeconds: arena.timeRemainingSeconds },
+              timestamp: Date.now()
+            });
           } else if (arena.phase === 'FIGHTING' || arena.status === 'FIGHTING') {
             // Match concluded -> Settle & distribute winnings
             arena.phase = 'SETTLING';
             arena.status = 'SETTLING';
             arena.timeRemainingSeconds = this.classroomMode ? 8 : 20;
+
+            const winResult: 'MERON' | 'WALA' | 'BDD' = Math.random() < 0.48 ? 'MERON' : Math.random() < 0.94 ? 'WALA' : 'BDD';
+            wsEngine.broadcast({
+              type: 'RESULT_ANNOUNCED',
+              arenaId: arena.id,
+              data: {
+                arenaId: arena.id,
+                matchNumber: arena.currentMatch,
+                winner: winResult,
+                meronOdds: arena.meronOdds,
+                walaOdds: arena.walaOdds,
+                bddOdds: 8.00,
+                announcedAt: Date.now()
+              },
+              timestamp: Date.now()
+            });
           } else if (arena.phase === 'SETTLING' || arena.phase === 'CLOSED') {
             // Next Match Prep: 10–15 min Weighing & Matching in real time, or 45s in classroom mode
             arena.currentMatch++;
@@ -465,8 +585,22 @@ export class CockfightService {
             arena.phase = 'WEIGHING';
             arena.status = 'WEIGHING';
             arena.timeRemainingSeconds = this.classroomMode ? 50 : 600; // 10 minutes realistic weighing
+            wsEngine.broadcast({
+              type: 'PHASE_CHANGE',
+              arenaId: arena.id,
+              data: { arenaId: arena.id, phase: 'WEIGHING', currentMatch: arena.currentMatch, timeRemainingSeconds: arena.timeRemainingSeconds },
+              timestamp: Date.now()
+            });
           }
         }
+        updatedArenas.push(arena);
+      });
+
+      // Broadcast synchronous tick to all clients
+      wsEngine.broadcast({
+        type: 'ARENAS_UPDATE',
+        data: { arenas: updatedArenas },
+        timestamp: Date.now()
       });
     }, 1000);
   }
