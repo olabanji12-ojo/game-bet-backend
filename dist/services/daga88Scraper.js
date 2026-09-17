@@ -7,20 +7,27 @@
 // Arena slug mapping: arenaId -> qynzy.nl slug fragment
 const ARENA_SLUGS = {
     CPC2: { slug: 'da-ga-cpc2', label: 'CPC2 Thomo Grand Arena' },
-    CPC3: { slug: 'da-ga-cpc3', label: 'CPC3 Casino 999 Arena' },
-    CPC4: { slug: 'da-ga-cpc4', label: 'CPC4 Kandal Arena' },
     CPC5: { slug: 'da-ga-cpc5', label: 'CPC5 Phnom Den Arena' },
     CPC7: { slug: 'da-ga-cpc7', label: 'CPC7 Arena' },
+    CPC9: { slug: 'da-ga-cpc3', label: 'CPC9 Casino 999 Arena' },
+    CPC3: { slug: 'da-ga-cpc3', label: 'CPC3 Casino 999 Arena' },
+    CPC4: { slug: 'da-ga-cpc4', label: 'CPC4 Kandal Arena' },
     XA_XIA: { slug: 'da-ga-xa-xia', label: 'Xà Xía Kampot Arena' },
 };
-// Map frontend arenaIds to our scraper keys
+// Map frontend arenaIds strictly by country:
+// Campuchia (Cambodia): CPC2, CPC5, CPC7, CPC9 strictly map to Cambodia syndication feeds
+// Philippines: PC1, PH1, PH2 do not pollute CPC arenas
 const ARENA_ID_MAP = {
-    CPC1: 'CPC2', // CPC1 falls back to CPC2 feed
     CPC2: 'CPC2',
-    CPC3: 'CPC3',
+    CPC5: 'CPC5',
+    CPC7: 'CPC7',
+    CPC9: 'CPC9',
+    CPC1: 'CPC2',
+    CPC3: 'CPC9',
     CPC4: 'CPC4',
-    PH1: 'CPC5', // Philippine arenas map to CPC5/CPC7
-    PH2: 'CPC7',
+    PC1: 'XA_XIA',
+    PH1: 'XA_XIA',
+    PH2: 'XA_XIA',
     PH3: 'XA_XIA',
 };
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0';

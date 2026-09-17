@@ -7,16 +7,34 @@ const DEFAULT_TEACHING_SOURCES = [
     {
         id: 'daga88_primary',
         sourceKey: 'daga88_primary',
-        name: 'DAGA88 — Recorded Match Feed (player.videosv388.com)',
+        name: 'Primary: DAGA88 Real Match Feed (player.videosv388.com)',
         provider: 'player.videosv388.com',
         url: 'https://player.videosv388.com',
         type: 'iframe',
         status: 'ONLINE'
     },
     {
+        id: 'source_ga6789',
+        sourceKey: 'source_ga6789',
+        name: 'Backup Route 1: GA6789 Live Feed (Thomo Center)',
+        provider: 'ga6789.com',
+        url: 'https://ga6789.com',
+        type: 'proxy_iframe',
+        status: 'ONLINE'
+    },
+    {
+        id: 'source_bj88',
+        sourceKey: 'source_bj88',
+        name: 'Backup Route 2: BJ88 Direct Live (Pasay Center)',
+        provider: 'bj88.com',
+        url: 'https://bj88.com/vn/vn',
+        type: 'proxy_iframe',
+        status: 'ONLINE'
+    },
+    {
         id: 'fallback_hls',
         sourceKey: 'fallback_hls',
-        name: 'Mux HLS Live Stream (60FPS Backup)',
+        name: 'Fallback Route 3: Mux HLS 60FPS Low-Latency Feed',
         provider: 'mux.dev',
         url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
         type: 'hls',
@@ -74,14 +92,23 @@ export class CockfightService {
         }
     }
     initializeArenas() {
+        const INITIAL_HISTORIES = {
+            CPC2: ['W', 'W', 'M', 'W', 'M', 'M', 'W', 'W', 'B', 'W', 'M', 'W', 'M', 'W', 'M'],
+            CPC5: ['M', 'W', 'M', 'M', 'W', 'B', 'M', 'W', 'W', 'M', 'M', 'W', 'M', 'M', 'W'],
+            CPC7: ['M', 'M', 'W', 'M', 'W', 'W', 'M', 'M', 'W', 'B', 'M', 'W', 'M', 'W', 'M'],
+            CPC9: ['W', 'M', 'W', 'M', 'M', 'W', 'W', 'M', 'W', 'M', 'B', 'W', 'M', 'W', 'M'],
+            PC1: ['M', 'W', 'M', 'B', 'M', 'W', 'W', 'M', 'M', 'W', 'M', 'W', 'M', 'W', 'W'],
+            PH1: ['W', 'M', 'W', 'W', 'M', 'M', 'B', 'W', 'M', 'W', 'M', 'W', 'M', 'M', 'W'],
+            PH2: ['M', 'M', 'W', 'W', 'M', 'W', 'M', 'B', 'M', 'W', 'W', 'M', 'W', 'M', 'W']
+        };
         const arenaDefs = [
-            { id: 'CPC1', name: 'Thomo CPC1 VIP Arena', location: 'Cambodia' },
             { id: 'CPC2', name: 'Thomo CPC2 Grand Arena', location: 'Cambodia' },
-            { id: 'CPC3', name: 'Thomo CPC3 Iron Spur', location: 'Cambodia' },
-            { id: 'CPC4', name: 'Thomo CPC4 Derby', location: 'Cambodia' },
-            { id: 'PH1', name: 'Pasay City PH1 Colosseum', location: 'Philippines' },
+            { id: 'CPC5', name: 'Thomo CPC5 Phnom Den Arena', location: 'Cambodia' },
+            { id: 'CPC7', name: 'Thomo CPC7 Arena', location: 'Cambodia' },
+            { id: 'CPC9', name: 'Thomo CPC9 Casino 999 Arena', location: 'Cambodia' },
+            { id: 'PC1', name: 'Pasay PC1 Grand Cockpit', location: 'Philippines' },
+            { id: 'PH1', name: 'Manila PH1 Live Colosseum', location: 'Philippines' },
             { id: 'PH2', name: 'Davao PH2 Cockpit Arena', location: 'Philippines' },
-            { id: 'PH3', name: 'Cebu PH3 Live Cockpit', location: 'Philippines' },
         ];
         arenaDefs.forEach((def, index) => {
             const { isOpen, operatingHours } = this.checkArenaOpenStatus(def.id);
@@ -99,10 +126,11 @@ export class CockfightService {
                 walaOdds: Math.round((0.95 + Math.random() * 0.08) * 100) / 100,
                 bddOdds: 8.00,
                 timeRemainingSeconds: this.classroomMode ? 45 + index * 10 : 180 + index * 60,
-                streamUrl: `https://live.sv388cdn.com/hls/${def.id.toLowerCase()}/master.m3u8`,
+                streamUrl: `https://player.videosv388.com`,
                 currentMatch,
                 meronRooster: this.generateRooster('MERON', def.location, currentMatch),
                 walaRooster: this.generateRooster('WALA', def.location, currentMatch),
+                history: INITIAL_HISTORIES[def.id] || ['M', 'W', 'M', 'W']
             });
         });
     }
@@ -217,6 +245,13 @@ export class CockfightService {
             trimmed.includes('twitch.tv') ||
             trimmed.includes('vimeo.com')) {
             return { isVideo: true, streamType: 'iframe' };
+        }
+        // 4. Client Operator Fallback Routes (ga6789, bj88, bj988)
+        if (trimmed.includes('ga6789.com') ||
+            trimmed.includes('bj88.com') ||
+            trimmed.includes('bj988.com') ||
+            trimmed.includes('daga88')) {
+            return { isVideo: true, streamType: 'proxy_iframe' };
         }
         // Otherwise reject generic web pages
         return {
@@ -377,6 +412,8 @@ export class CockfightService {
             arena.status = 'SETTLING';
             arena.timeRemainingSeconds = this.classroomMode ? 8 : 20;
             const winResult = winner || (Math.random() < 0.48 ? 'MERON' : Math.random() < 0.94 ? 'WALA' : 'BDD');
+            const code = winResult === 'MERON' ? 'M' : winResult === 'WALA' ? 'W' : 'B';
+            arena.history = [...(arena.history || []).slice(-29), code];
             wsEngine.broadcast({
                 type: 'RESULT_ANNOUNCED',
                 arenaId,
@@ -384,6 +421,7 @@ export class CockfightService {
                     arenaId,
                     matchNumber: arena.currentMatch,
                     winner: winResult,
+                    history: arena.history,
                     meronOdds: arena.meronOdds,
                     walaOdds: arena.walaOdds,
                     bddOdds: 8.00,
@@ -465,6 +503,8 @@ export class CockfightService {
                         arena.status = 'SETTLING';
                         arena.timeRemainingSeconds = this.classroomMode ? 8 : 20;
                         const winResult = Math.random() < 0.48 ? 'MERON' : Math.random() < 0.94 ? 'WALA' : 'BDD';
+                        const code = winResult === 'MERON' ? 'M' : winResult === 'WALA' ? 'W' : 'B';
+                        arena.history = [...(arena.history || []).slice(-29), code];
                         wsEngine.broadcast({
                             type: 'RESULT_ANNOUNCED',
                             arenaId: arena.id,
@@ -472,6 +512,7 @@ export class CockfightService {
                                 arenaId: arena.id,
                                 matchNumber: arena.currentMatch,
                                 winner: winResult,
+                                history: arena.history,
                                 meronOdds: arena.meronOdds,
                                 walaOdds: arena.walaOdds,
                                 bddOdds: 8.00,

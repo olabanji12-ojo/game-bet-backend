@@ -94,7 +94,7 @@ export interface Wallet {
 }
 
 // Cockfight SV388 Domain Types
-export type ArenaId = 'CPC1' | 'CPC2' | 'CPC3' | 'CPC4' | 'PH1' | 'PH2' | 'PH3';
+export type ArenaId = 'CPC2' | 'CPC5' | 'CPC7' | 'CPC9' | 'PC1' | 'PH1' | 'PH2' | 'CPC1' | 'CPC3' | 'CPC4' | 'PH3';
 export type CockfightChoice = 'MERON' | 'WALA' | 'BDD';
 
 export type ArenaPhase = 'CLOSED' | 'WEIGHING' | 'BETTING_OPEN' | 'GATE_LOCKED' | 'FIGHTING' | 'SETTLING';
@@ -124,6 +124,7 @@ export interface CockfightArena {
   meronRooster?: RoosterProfile;
   walaRooster?: RoosterProfile;
   customStreamUrl?: string;
+  history?: Array<'M' | 'W' | 'B'>;
 }
 
 // Casino 3D Domain Types
